@@ -183,4 +183,192 @@ useQuery<Account, ApiError>({
     placeholderData: (prev) => prev,
 });
 ```
-- 테스트 커밋
+
+### 반환
+
+|반환속성|설명|
+|--|--|
+|data|성공적으로 가져온 데이터|
+|dataUpdateAt|최근에 데이터를 성공적으로 가져온 시간|
+|error|오류가 발생했을때의 오류 객체, 오류가 발생하지 않았다면 Null|
+|errorUpdateCount|모든 오류의 횟수|
+|failureCount|쿼리의 실패횟수, 쿼리가 실패할 때마다 증가하고 쿼리가 성공하면 0으로 재지정|
+|failureReason|쿼리의 재시도 실패이유, 쿼리가 성공하면 null로 재지정|
+|fetchStatus|fetching : 쿼리 함수가 실행 중, (첫 대기 및 백그라운드 다시 가져오기 포함, isFetching) \n paused : 쿼리 함수의 가져오기가 일시 중단됨.(isPaused) \n idle : 쿼리 함수가 동작 중이지 않음|
+|isError|쿼리 함수에서의 오류 발생 여부|
+|isFetched|쿼리의 첫 데이터 가져오기가 완료되었는지 여부.|
+|isSuccess|쿼리 데이터를 성공적으로 가져왔는지 여부|
+|refetch|데이터를 새롭게 다시 가져오는 함수 \n throwOnError:true 옵션을 사용해야 오류가 발생|
+|state|pending: 캐시된 데이터가 없고 아직 완료되지 않은 상태(isPending) \n error : 오류가 발생한 상태(isError) \n success : 데이터를 성공적으로 가져온 상태(isSuceess)
+
+### 상태확인
+
+- isFetching은 쿼리 함수(queryFn)가 실행중인지의 여부로, 데이터를 가져오는 중으로 나타냄
+- isPending은 캐시된 데이터가 없고 쿼리가 아직 완료되지 않은 상태의 여부로 initialData 혹은 placeholderData옵션으로 데이터를 제공하면 출력대기(Pending)가 필요하지 않으므로 false를 반환함
+- enable 옵션을 false로 지정하면, 쿼리가 대기 상태로 시작하므로 isPending은 true를 반환함
+- isLoading은 isFetching && isPending와 같은 의미로, 쿼리의 첫 번째 가져오기가 진행 중인 경우를 나타냄
+
+```
+const {data : account, isFetching, isPending, isLoading } = useQueryAccounts();
+```
+
+#### 다시 가져오기
+- refetch함수를 사용하면, 데이터를 항상 새롭게 다시 가져올 수 있음
+
+
+```
+const {data : accounts, refetch} = useQueryAccount();
+```
+
+#### Suspense 처리(로딩)
+- @TODO : 공통로딩처리, 커스텀 로딩 처리
+
+#### error 처리
+- @TODO : 공통 에러 처리, 커스텀 에러 처리
+
+### useInfiniteQuery
+- 더 보기 버튼으로 추가 데이터를 더 가져오거나 더 나아가 무한 스크롤 기능은 쉽게 찾아볼 수 있는 일반적인 UI임
+- React Query는 이런 UI 개발을 위해 useInfiniteQuery 훅을 제공함
+
+```
+const 반환 = useInfiniteQuery<페이지 >
+```
+
+### 옵션
+- useInfiniteQuery는 앞서 살펴본 useQuery의 모든 옵션을 사용할 수 있으며, 추가로 다음의 옵션을 사용할 수 있음
+- 다음은 알파벳 순으로 정렬한 목록임
+
+|옵션|설명|기본값|필수여부|
+|getNextPageParam|새로운 다음 페이지를 가져오면 다음 페이지의 정보로 호출되는 함수, 다음 페이지 번호를 반환해야함 /n 다음 페이지가 없으면, undefined 또는 null을 반환해야함||Y|
+|initialPageParam|첫번째 페이지의 번호| |Y|
+|getPreviousPageParam|새로운 이전 페이지를 가져오면 이전 페이지의 정보로 호출되는 함수, 이전 페이지 번호를 반환해야함 /n 이전 페이지가 없으면 undefined 또는 null을 반환함||N|
+|maxPages|저장 및 출력할 최대 페이지 수, 페이지가 지나치게 많은 경우에 유용|infinite|N|
+
+### 반환
+|반환속성|설명|
+|fetchNextPage|다음 페이지를 가져오는 함수,|
+|fetchPreviousPage|이전 페이지를 가져오는 함수|
+|hasNextPage|다음 페이지가 있는지 여부|
+|hasPreviousPage|이전 페이지가 있는지 여부|
+|isFetchingNextPage|다음 페이지를 가져오는 중인지의 여부|
+|isFetchingPreviousPage|이전 페이지를 가져오는 중인지의 여부|
+
+
+### 예제
+```
+ const useInfiniteQueryAccount = () => {
+    const { getPageAccount } = useApiAccounts();
+
+    const queryFn = async({ pageParam = 1 }) => {
+        return getPageAccount({ pageParam });
+    };
+
+    return useInfiniteQuery({
+        queryKey: {QUERY_KEY},
+        queryFn,
+        initialPageParam: 1,
+        getNextPageParam: (lastPage) => (lastPage.hasNextCursor ? lastPage.nextCursor : undefined),
+    });
+ };
+
+ const { data: accounts, fetchNextPage, isFetchingNextPage, hasNextPage } = useinifiniteQueryAccount();
+
+ <button onClick={() => fetchNextPage()} disable={!hasNextPage}>
+    {isFetchingNextPage ? '로딩 중...' : '더 보기'}
+ </button>;
+```
+- @TODO : 추후 무한스크롤처리 반영
+
+### useMutation
+- react query는 데이터 변경 작업(생성, 수정, 삭제 등)을 위한 useMutation 훅을 제공함
+- 이를 통해 데이터 변경 작업을 처리하고 다양한 성공, 로딩 등의 상태를 얻을 수 있음
+- 그리고 요청 실패 시의 자동 재시도나 낙관적 업데이트 같은 고급 기능도 쉽게 처리할 수 있음
+- 쿼리(useQuery)는 '가져오기'에 집중하는 반면, 변이(useMutation)는 보내기에 집중하는 훅으로 이해하면 쉬움
+- 낙관적 업데이트
+  - 낙관적 업데이트(Optimistic Update)는 서버 요청의 응답을 기다리지 않고, 먼저 UI를 업데이트 하는 기능을 말함
+  - 서버 응답이 느린 상황에서도 빠른 인터페이스를 제공할 수 있어 사용자 경험을 크게 향상시킬 수 있음
+
+```
+const 반환 = useMutation(옵션);
+```
+
+### 옵션
+|옵션|설명|기본값|
+|--|--|--|
+|gcTime|비활성 캐시 데이터(Inactive)가 메모리에 남아 있는 시간(ms)||
+|meta|활용할 추가 정보를 지정||
+|mutationFn|실행할 비동기 변이 함수(필수)||
+|mutationKey|queryClient.setMutationDefaults의 기본값 상속을 위한 키||
+|networkMode|네트워크모드지정, [online, always, offlineFirst]||
+|onError|변이 중 오류가 발생할 때 호출하는 함수||
+|onMutate|변이 함수가 실행되기 전에 호출되는 함수||
+|onSettled|변이가 성공하거나 실패해도 항상 호출되는 함수||
+|onSuccess|변이가 성공할 때 호출되는 함수||
+|queryClient|커스텀 쿼리 클라이언트 연결||
+|retry|변이 실패 시 재시도 함수|0|
+|retryDelay|재시도 시간 간격(ms)||
+|scope|동시 실행범위지정, 같은 범위 id를 가진 변이는 병렬이 아닌 직렬로 실행||
+|throwOnError|변이 실패 시 오류를 던질지 여부|undefined|
+
+### 반환
+|반환속성|설명|
+|data|성공적으로 가져온 데이터|
+|error|오류가 발생했을 때의 오류 객체, 오류가 발생하지 않았다면 null|
+|failureCount|변이의 실패 횟수, 변이가 실패할 때마다 증가하고 변이가 성공하면 0으로 재지정|
+|isError|변이 함수에서의 오류 발생 여부|
+|isIdle|변이 함수가 실행되기 전의 초기 상태인지 여부|
+|isPaused|변이 함수가 일시 중단되었는지 여부|
+|isPending|변이 함수가 실행되었는지 여부|
+|isSuccess|데이터를 성공적으로 가져왔는지 여부|
+|mutate|변이 실행 함수 {variabled : Tvariables, {on Success, onSettled, onError}} => void|
+|mutateAsync|비동기 변이 실행함수 {variables: TVariables, { onSuccess, onSettled, onError }} => Promise<TData>|
+|reset|변이 내부 상태를 초기 상태로 재지정하는 함수 () => void|
+|status|변이의 현재상태 idle : 초기상태 , pending: 실행 중, error: 오류 발생, success: 성공|
+|submittedAt|변이가 제출된 시간(유닉스 타임 스탬프)|
+|variables|변이 실행 함수(mutate)에 전달된 데이터|
+
+### 예제
+- 계좌이체 처리 예제
+```
+// 뮤테이션 선인 이후
+const useMutationTransfer = () => {
+    const { transferAccount } = useApiAccount();
+    const queryClient = useQueryClient();
+
+    const mutationFn = async (itransfer : ITransfer) => {
+        return wait transferAccounts(itransfer);
+    };
+
+    return useMutation({
+        mutationFn,
+        onSuccess: (data) => {
+            console.log('계좌이체 onSuccess() : ', data)
+
+            queryClient.refetchQueries({ queryKey : [useQueryAccounts.KEY] });
+
+            //이체인 (step2 화면에서 갱신)
+            queryClient.invalidationQuery({ queryKey: [useQueryAccount.Key, data.iFromAccountNumber] });
+
+            //수취인 (계좌 상세조회에서 갱신)
+            queryClient.invalidaDataQueries({ queryKey: [useQueryAccount.KEY, data.iToAccountNumber] });
+        },
+        onError(error) {
+            console.error('계좌이체 onError() : ',error);'
+        }
+        onSettled: () => {
+            console.log('게좌이체 onSettled()');
+        },
+    });
+};
+
+export default useMutationTransfer;
+
+//뮤테이션 처리
+const onSubmit = (data: ITransferS) => {
+    transferMutation.mutate(data, {
+        onSuccess: () => {
+            navigate('/sample/accounts/transfer/step3');
+        },
+    });
+};
+```
